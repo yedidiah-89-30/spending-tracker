@@ -41,11 +41,12 @@ and a service never imports `Session`/FastAPI. That means:
 
 ## Sprint status
 
-This repo is being built sprint-by-sprint per the project spec. **Sprint 1
-(Authentication) is complete.** Later sprints (Dashboard, Income, Expenses,
-Budgets, Savings Goals, Subscriptions, Reports, Notifications, Settings,
-Profile) will each add their own `models/`, `schemas/`, `repositories/`,
-`services/`, and `api/v1/endpoints/` files without changing this structure.
+This repo is being built sprint-by-sprint per the project spec. **Sprints 1
+(Authentication) and 2 (Dashboard) are complete.** Later sprints (Income,
+Expenses, Budgets, Savings Goals, Subscriptions, Reports, Notifications,
+Settings, Profile) will each add their own `models/`, `schemas/`,
+`repositories/`, `services/`, and `api/v1/endpoints/` files without changing
+this structure.
 
 ## Setup
 
@@ -166,3 +167,79 @@ a human-readable message safe to display directly.
 
 - **Branch:** `feature/auth`
 - **Suggested commit:** `feat(auth): implement JWT authentication with refresh token rotation`
+
+## Sprint 2 — Dashboard
+
+### Endpoints
+
+| Method | Path | Auth required | Description |
+|---|---|---|---|
+| GET | `/api/v1/dashboard/summary` | Yes (Bearer access token) | Monthly overview: totals, net profit/loss, savings, recent transactions |
+
+Query params: `month` (1-12, default: current month), `year` (default: current year).
+
+### Response shape
+
+```json
+{
+  "month": 7,
+  "year": 2026,
+  "currency": "$",
+  "total_income": "0",
+  "total_expenses": "0",
+  "net_profit_loss": "0",
+  "total_savings": "0",
+  "recent_transactions": [],
+  "pending_features": ["income", "expenses", "savings_goals", "subscriptions"]
+}
+```
+
+### Database changes
+
+**None.** The Dashboard doesn't own any data - it aggregates across other
+domains. No migration was added for this sprint.
+
+### Architectural decisions made in this sprint
+
+- **The Dashboard was built out of dependency order on purpose.** Income,
+  Expenses, Savings Goals, and Subscriptions (the sprints Dashboard needs
+  real numbers from) don't exist yet. Rather than skip Sprint 2 or invent
+  those domains early, `DashboardService.get_summary()` returns a
+  correctly-shaped response with zeroed totals and an empty transaction
+  list, plus a `pending_features` array naming exactly which data sources
+  aren't wired up yet.
+- **The API contract is locked in now and won't change.** Each future
+  sprint (Income, Expenses, Savings Goals, Subscriptions) will inject its
+  repository into `DashboardService` and replace one hardcoded value with
+  a real aggregation query, removing that feature from `pending_features`
+  as it goes. No schema or route change is required when that happens.
+- **Money fields use `Decimal`, not `float`,** in `DashboardSummary`
+  (per the "avoid floating-point precision errors" requirement) - this
+  convention should carry through to every future sprint that handles
+  amounts.
+- `router.py` from Sprint 1 was touched **only** to add one
+  `include_router` line for the new dashboard routes - no other Sprint 1
+  code changed.
+
+### Integration Notes for Frontend
+
+- Build the dashboard UI against the shape above **today** - it's stable.
+- Check `pending_features` to decide whether to show a real number or a
+  "coming soon" placeholder for each widget (e.g. hide/gray out the
+  income/expense cards until `"income"`/`"expenses"` disappear from that
+  array).
+- `recent_transactions` will start being populated once Income (Sprint 3)
+  and Expenses (Sprint 4) exist; its item shape (`id`, `type`, `category`,
+  `amount`, `description`, `date`) is already final.
+- Same auth header convention as Sprint 1: `Authorization: Bearer <access_token>`.
+
+### Testing
+
+`tests/test_dashboard_service.py` (unit) and `tests/test_dashboard_api.py`
+(API-level, including the 401-without-auth and 422-invalid-month cases).
+Run with `uv run pytest` - all 27 tests (19 from Sprint 1 + 8 new) pass.
+
+### Git
+
+- **Branch:** `feature/dashboard`
+- **Suggested commit:** `feat(dashboard): add dashboard summary endpoint with placeholder aggregation`
