@@ -42,11 +42,11 @@ and a service never imports `Session`/FastAPI. That means:
 ## Sprint status
 
 This repo is being built sprint-by-sprint per the project spec. **Sprints 1
-(Authentication) and 2 (Dashboard) are complete.** Later sprints (Income,
-Expenses, Budgets, Savings Goals, Subscriptions, Reports, Notifications,
-Settings, Profile) will each add their own `models/`, `schemas/`,
-`repositories/`, `services/`, and `api/v1/endpoints/` files without changing
-this structure.
+(Authentication), 2 (Dashboard), and 3 (Income) are complete.** Later
+sprints (Expenses, Budgets, Savings Goals, Subscriptions, Reports,
+Notifications, Settings, Profile) will each add their own `models/`,
+`schemas/`, `repositories/`, `services/`, and `api/v1/endpoints/` files
+without changing this structure.
 
 ## Setup
 
@@ -243,3 +243,127 @@ Run with `uv run pytest` - all 27 tests (19 from Sprint 1 + 8 new) pass.
 
 - **Branch:** `feature/dashboard`
 - **Suggested commit:** `feat(dashboard): add dashboard summary endpoint with placeholder aggregation`
+
+## Sprint 3 — Income
+
+### Endpoints
+
+| Method | Path | Auth required | Description |
+|---|---|---|---|
+| POST | `/api/v1/income` | Yes | Create an income entry |
+| GET | `/api/v1/income` | Yes | List income entries (paginated, filterable, sortable) |
+| GET | `/api/v1/income/{income_id}` | Yes | Get one income entry |
+| PATCH | `/api/v1/income/{income_id}` | Yes | Partially update an income entry |
+| DELETE | `/api/v1/income/{income_id}` | Yes | Delete an income entry |
+
+**Categories:** `salary`, `business`, `freelance`, `other`.
+
+**List filters (query params):** `category`, `start_date`/`end_date`
+(inclusive), `min_amount`/`max_amount`, `search` (matches `description`).
+**Sorting:** `sort_by` (`date` | `amount` | `category` | `created_at`,
+default `date`), `sort_order` (`asc` | `desc`, default `desc`).
+**Pagination:** `page` (default 1), `page_size` (default 20, max 100).
+
+### Response envelope for list endpoints
+
+Every paginated list in this API (starting now, reused by every future
+sprint) returns:
+```json
+{
+  "items": [ ... ],
+  "total": 42,
+  "page": 1,
+  "page_size": 20,
+  "total_pages": 3
+}
+```
+
+### Validation
+
+- `amount` must be greater than 0 (enforced in the schema and as a DB
+  `CHECK` constraint - defense in depth).
+- `category` must be one of the four valid values (enforced in the
+  schema and as a DB `CHECK` constraint).
+- `description` optional, max 500 characters.
+- Money is stored as `NUMERIC(12,2)`, never `FLOAT` - no floating-point
+  rounding errors on financial data.
+
+### Database changes
+
+New `income` table - see migration below. Ownership is enforced at the
+query level (every read/update/delete filters by `user_id`); a mismatched
+or nonexistent id returns `404`, not `403`, so the API never confirms
+whether a given id exists for another user.
+
+### Migration
+
+`alembic/versions/0002_create_income_table.py` (depends on `0001`). Run:
+```bash
+uv run alembic upgrade head
+```
+
+### Architectural decisions made in this sprint
+
+- **Dashboard now reflects real income data** - `DashboardService` gained
+  a required `IncomeRepository` dependency; `total_income` and
+  `net_profit_loss` are computed from real rows, and `"income"` was
+  removed from `pending_features`. This was the planned Sprint-2-to-3
+  hookup, not scope creep.
+- **`recent_transactions` is a "latest activity" feed, not scoped to the
+  dashboard's selected month/year** - a conscious design decision (see
+  the docstring on `DashboardService.get_summary`) since totals and
+  "what did I just do" are different questions a dashboard answers.
+- **PATCH uses `exclude_unset=True`**, not "skip if None": a field the
+  client omits is left untouched, but a field explicitly sent as `null`
+  (e.g. clearing `description`) is actually cleared. This distinction
+  matters and is covered by a test.
+- **Two real Python gotchas were caught by the test suite while building
+  this sprint** and are worth knowing about for future sprints:
+  1. A Pydantic field named `date` with the annotation `date | None = None`
+     raises `TypeError: unsupported operand type(s) for |: 'NoneType' and 'NoneType'`.
+     Cause: for an annotated assignment `x: T = v`, Python binds the
+     *value* to the class namespace before evaluating the *annotation*,
+     so if `x` and `T` are the same name, the annotation sees the
+     already-assigned value instead of the type. Fixed by importing the
+     type under an alias (`from datetime import date as date_type`) in
+     `app/schemas/income.py`. Any future schema with a field literally
+     named `date` (or `id`, `list`, etc. shadowing a needed name) should
+     use the same alias pattern.
+  2. A service method named `list` breaks return-type annotations
+     (`-> list[Income]`) on every method defined *after* it in the same
+     class, because the class body's local namespace now shadows the
+     builtin `list`. Renamed to `list_for_user`. **Avoid naming any
+     repository/service method `list`, `dict`, `type`, or other builtins**
+     for this reason.
+- **Rate limiting** was not added to Income endpoints - unlike auth,
+  these aren't credential-guessing targets, so the existing per-endpoint
+  opt-in (`app/utils/rate_limit.py`) wasn't necessary here.
+
+### Integration Notes for Frontend
+
+- Auth header convention unchanged: `Authorization: Bearer <access_token>`.
+- Build income list/filter/sort UI against the query params and envelope
+  documented above - this same pagination shape will be used by Expenses,
+  Budgets, and every other list endpoint, so it's worth a shared frontend
+  helper now.
+- `PATCH` truly is partial - only send fields you want changed. To clear
+  `description`, send `"description": null` explicitly.
+- `404` (not `403`) is returned for another user's income id or an id
+  that doesn't exist - don't rely on the distinction between those two
+  cases; treat any `404` on these routes as "not accessible to you."
+- The Dashboard's `total_income` and `recent_transactions` will now
+  reflect real data - no frontend change needed there, it was already
+  built against this contract in Sprint 2.
+
+### Testing
+
+`tests/test_income_service.py` (unit) and `tests/test_income_api.py`
+(API-level: CRUD, validation, ownership, filtering, sorting, pagination).
+`tests/test_dashboard_service.py` and `tests/test_dashboard_api.py` were
+updated to reflect income now being wired in. Run with `uv run pytest` -
+all 58 tests (27 from Sprints 1-2 + 31 new/updated) pass.
+
+### Git
+
+- **Branch:** `feature/income`
+- **Suggested commit:** `feat(income): add income CRUD with pagination, filtering, and sorting`
