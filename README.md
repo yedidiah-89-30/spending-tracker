@@ -1,6 +1,6 @@
-# Spending Tracker
+# Finance Tracker
 
-A modern full-stack spending tracker application.
+A modern full-stack finance tracker application.
 
 ## Status
 
