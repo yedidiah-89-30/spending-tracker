@@ -30,11 +30,11 @@ class TestDashboardSummaryEndpoint:
         assert body["total_savings"] == "0.00"
         assert body["recent_transactions"] == []
         assert set(body["pending_features"]) == {
-            "expenses",
             "savings_goals",
             "subscriptions",
         }
         assert "income" not in body["pending_features"]
+        assert "expenses" not in body["pending_features"]
 
     def test_defaults_to_current_month_and_year(self, client):
         token = register_and_get_token(client)

@@ -4,7 +4,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { authService } from '../services/auth.service';
 import { useToast } from '@/shared/hooks/useToast';
 import { getErrorMessage } from '@/shared/lib/api/error';
-import type { LoginRequest, RegisterRequest } from '../types';
+import type { LoginRequest } from '../types';
+import type { RegisterFormData } from '../validations/auth.schema';
 
 export const AUTH_QUERY_KEY = 'auth';
 
@@ -24,15 +25,19 @@ export function useAuth() {
 
   const loginMutation = useMutation({
     mutationFn: (data: LoginRequest) => authService.login(data),
+
     onSuccess: (data) => {
       queryClient.setQueryData([AUTH_QUERY_KEY, 'user'], data.user);
       setIsAuthenticated(true);
+
       toast({
         title: 'Welcome back!',
-        description: `Hello, ${data.user.name}`,
+        description: `Hello, ${data.user.full_name}`,
       });
+
       router.push('/dashboard');
     },
+
     onError: (error: any) => {
       toast({
         title: 'Login failed',
@@ -43,16 +48,25 @@ export function useAuth() {
   });
 
   const registerMutation = useMutation({
-    mutationFn: (data: RegisterRequest) => authService.register(data),
+    mutationFn: (data: RegisterFormData) =>
+      authService.register({
+        full_name: data.name,
+        email: data.email,
+        password: data.password,
+      }),
+
     onSuccess: (data) => {
       queryClient.setQueryData([AUTH_QUERY_KEY, 'user'], data.user);
       setIsAuthenticated(true);
+
       toast({
         title: 'Account created!',
         description: 'Welcome to Finance Tracker',
       });
+
       router.push('/dashboard');
     },
+
     onError: (error: any) => {
       toast({
         title: 'Registration failed',
@@ -64,15 +78,19 @@ export function useAuth() {
 
   const logoutMutation = useMutation({
     mutationFn: authService.logout,
+
     onSuccess: () => {
       queryClient.clear();
       setIsAuthenticated(false);
+
       toast({
         title: 'Logged out',
         description: 'You have been successfully logged out',
       });
+
       router.push('/login');
     },
+
     onError: (error: any) => {
       toast({
         title: 'Logout failed',
@@ -90,12 +108,16 @@ export function useAuth() {
     user,
     isLoading: isLoadingUser,
     isAuthenticated,
+
     login: loginMutation.mutateAsync,
     isLoggingIn: loginMutation.isPending,
+
     register: registerMutation.mutateAsync,
     isRegistering: registerMutation.isPending,
+
     logout: logoutMutation.mutateAsync,
     isLoggingOut: logoutMutation.isPending,
+
     refetchUser: refetch,
   };
 }

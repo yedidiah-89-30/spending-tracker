@@ -17,7 +17,10 @@ export const authService = {
   async login(data: LoginRequest): Promise<LoginResponse> {
     try {
       const response = await apiClient.post<LoginResponse>('/auth/login', data);
-      this.setTokens(response.data.token, response.data.refreshToken);
+      this.setTokens(
+        response.data.access_token,
+        response.data.refresh_token
+      );
       return response.data;
     } catch (error) {
       throw handleAPIError(error);
@@ -27,7 +30,10 @@ export const authService = {
   async register(data: RegisterRequest): Promise<RegisterResponse> {
     try {
       const response = await apiClient.post<RegisterResponse>('/auth/register', data);
-      this.setTokens(response.data.token, response.data.refreshToken);
+      this.setTokens(
+        response.data.access_token,
+        response.data.refresh_token
+      );
       return response.data;
     } catch (error) {
       throw handleAPIError(error);

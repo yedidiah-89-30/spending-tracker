@@ -42,8 +42,8 @@ and a service never imports `Session`/FastAPI. That means:
 ## Sprint status
 
 This repo is being built sprint-by-sprint per the project spec. **Sprints 1
-(Authentication), 2 (Dashboard), and 3 (Income) are complete.** Later
-sprints (Expenses, Budgets, Savings Goals, Subscriptions, Reports,
+(Authentication), 2 (Dashboard), 3 (Income), and 4 (Expenses) are
+complete.** Later sprints (Budgets, Savings Goals, Subscriptions, Reports,
 Notifications, Settings, Profile) will each add their own `models/`,
 `schemas/`, `repositories/`, `services/`, and `api/v1/endpoints/` files
 without changing this structure.
@@ -367,3 +367,90 @@ all 58 tests (27 from Sprints 1-2 + 31 new/updated) pass.
 
 - **Branch:** `feature/income`
 - **Suggested commit:** `feat(income): add income CRUD with pagination, filtering, and sorting`
+
+## Sprint 4 — Expenses
+
+### Endpoints
+
+| Method | Path | Auth required | Description |
+|---|---|---|---|
+| POST | `/api/v1/expenses` | Yes | Create an expense entry |
+| GET | `/api/v1/expenses` | Yes | List expenses - paginated, filterable, sortable, searchable |
+| GET | `/api/v1/expenses/{id}` | Yes | Get a single expense entry |
+| PATCH | `/api/v1/expenses/{id}` | Yes | Partially update an expense entry |
+| DELETE | `/api/v1/expenses/{id}` | Yes | Delete an expense entry |
+
+Identical shape to Income (Sprint 3) on purpose: same pagination envelope,
+same filter/sort/search query params, same ownership and error semantics.
+`category` is one of `food`, `transport`, `rent`, `utilities`, `shopping`,
+`entertainment`, `others`.
+
+### Database changes
+
+New `expenses` table - see `alembic/versions/0003_create_expenses_table.py`.
+Same shape as `income`: `NUMERIC(12,2)` for `amount`, `CHECK` constraints
+for `amount > 0` and category validity, FK to `users` with `ON DELETE
+CASCADE`, indexes on `user_id` and `date`.
+
+### Migration requirements
+
+```
+uv run alembic upgrade head
+```
+Applies `0003`, which depends on `0002` (Income) and `0001` (Auth).
+
+### Architectural decisions made in this sprint
+
+- **Expense mirrors Income's structure exactly** (model, schema,
+  repository, service, endpoint) rather than trying to generalize the two
+  into one shared "transaction" abstraction. At two features this kept
+  each file simple and readable; if a third near-identical CRUD feature
+  shows up (it won't, per the sprint plan - Budgets/Savings/Subscriptions
+  all have distinct shapes), extracting a shared generic CRUD base would
+  be worth revisiting then, not before.
+- **`DashboardService` now takes both `IncomeRepository` and
+  `ExpenseRepository`** (constructor changed) and computes a real
+  `net_profit_loss = total_income - total_expenses`, which can legitimately
+  be negative - that's not an error state. `recent_transactions` now
+  merges income and expense rows into one newest-first feed, capped at 5
+  total (not 5 of each). `"expenses"` was removed from `pending_features`.
+  This was the pre-announced, expected Sprint 4 change to Sprint 2 - no
+  other Sprint 1-3 code changed.
+- **`sum_by_category_for_month`** was added to `ExpenseRepository` now,
+  even though nothing calls it yet - Budgets (Sprint 5) and Reports
+  (Sprint 8) both need "spending per category for a given month," and this
+  avoids that logic being duplicated or subtly diverging across two later
+  sprints.
+- Fixed a latent duplicate-relationship-declaration bug in
+  `app/models/user.py` (the `expenses` relationship was declared twice)
+  while wiring this sprint in - harmless in practice (Python just
+  overwrote the first one) but worth a clean one-line fix rather than
+  leaving dead code in a model that will keep growing.
+
+### Testing
+
+`tests/test_expense_service.py` (unit - CRUD, ownership, filtering,
+sorting, pagination, plus the category/month reporting helpers) and
+`tests/test_expense_api.py` (API-level, same coverage as Income's API
+tests plus a negative-amount rejection case). `tests/test_dashboard_*`
+were updated for real expense data and net profit/loss, including a test
+that net profit/loss can be negative. Run with `uv run pytest` - **102
+tests pass** (58 from Sprints 1-3 + 44 new/updated).
+
+### Integration Notes for Frontend
+
+- Same auth header, same pagination/filter/sort contract as Income - the
+  list-view component you built for Income should work for Expenses with
+  just the endpoint path and category enum swapped.
+- `PATCH` is partial; send `"description": null` to explicitly clear it.
+- `404` (not `403`) for another user's expense or a nonexistent id.
+- Dashboard's `total_expenses` and `net_profit_loss` now reflect real
+  data automatically - `net_profit_loss` can be negative; render that as a
+  loss state, not an error.
+- `recent_transactions` now actually mixes income and expense rows; use
+  the `type` field (`"income"` | `"expense"`) to style each row.
+
+### Git
+
+- **Branch:** `feature/expenses`
+- **Suggested commit:** `feat(expenses): add expense CRUD and wire real totals into the dashboard`

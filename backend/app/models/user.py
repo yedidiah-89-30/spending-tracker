@@ -21,3 +21,4 @@ class User(Base):
         back_populates="user", cascade="all, delete-orphan"
     )
     incomes: Mapped[list["Income"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    expenses: Mapped[list["Expense"]] = relationship(back_populates="user", cascade="all, delete-orphan")

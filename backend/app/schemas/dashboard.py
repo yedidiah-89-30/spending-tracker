@@ -7,11 +7,10 @@ from pydantic import BaseModel, ConfigDict, Field
 class RecentTransactionRead(BaseModel):
     """Shape for one row in the dashboard's 'recent transactions' widget.
 
-    Defined now so the frontend can build against a stable contract; no
-    endpoint populates this with real rows until the Income (Sprint 3) and
-    Expense (Sprint 4) repositories exist. Deliberately generic (`type` is
-    "income" | "expense") rather than reusing Income/Expense schemas
-    directly, since those don't exist yet either.
+    Populated from a merge of Income (Sprint 3) and Expense (Sprint 4)
+    entries, newest first. Deliberately generic (`type` is "income" |
+    "expense") rather than reusing IncomeRead/ExpenseRead directly, since
+    this feed mixes both.
     """
 
     model_config = ConfigDict(from_attributes=True)
@@ -27,10 +26,11 @@ class RecentTransactionRead(BaseModel):
 class DashboardSummary(BaseModel):
     """Top-level payload for GET /api/v1/dashboard/summary.
 
-    total_income / total_expenses / net_profit_loss / total_savings are
-    currently always 0 - see DashboardService for why. currency is read
-    from the authenticated user's profile so the frontend never has to
-    guess a display currency.
+    total_income/total_expenses/net_profit_loss reflect real Income and
+    Expense data as of Sprint 4. total_savings stays 0 until Savings Goals
+    (Sprint 6) lands - see DashboardService and `pending_features` below.
+    currency is read from the authenticated user's profile so the
+    frontend never has to guess a display currency.
     """
 
     month: int = Field(ge=1, le=12)

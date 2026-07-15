@@ -1,11 +1,10 @@
 export interface User {
-  id: string;
+  id: number;
   email: string;
-  name: string;
-  role: 'admin' | 'user';
-  avatar?: string;
-  createdAt: string;
-  updatedAt: string;
+  full_name: string;
+  currency: string;
+  is_active: boolean;
+  created_at: string;
 }
 
 export interface LoginRequest {
@@ -15,21 +14,22 @@ export interface LoginRequest {
 
 export interface LoginResponse {
   user: User;
-  token: string;
-  refreshToken: string;
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
 }
 
 export interface RegisterRequest {
-  name: string;
+  full_name: string;
   email: string;
   password: string;
-  confirmPassword: string;
 }
 
 export interface RegisterResponse {
   user: User;
-  token: string;
-  refreshToken: string;
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
 }
 
 export interface ForgotPasswordRequest {
