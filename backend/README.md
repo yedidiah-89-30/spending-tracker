@@ -454,3 +454,63 @@ tests pass** (58 from Sprints 1-3 + 44 new/updated).
 
 - **Branch:** `feature/expenses`
 - **Suggested commit:** `feat(expenses): add expense CRUD and wire real totals into the dashboard`
+
+## Bug fix — Income stats endpoint missing (404→422 route collision) + dashboard investigation
+
+**Bug 1 (real, fixed):** the frontend's Income stats card called
+`GET /api/v1/income/stats`, but no such endpoint existed - only CRUD routes
+did. Because `GET /income/{income_id}` was already registered, Starlette
+matched `/income/stats` against it (`income_id="stats"`) and failed int
+validation, returning `422 Unprocessable Entity`. That's the exact error
+behind "Failed to load stats." Fixed by adding a real `GET /income/stats`
+endpoint - registered **before** `GET /income/{income_id}` in
+`app/api/v1/endpoints/income.py`, since Starlette matches routes in
+registration order and reversing that order would silently reintroduce
+this bug. A regression test
+(`test_route_does_not_collide_with_get_by_id`) locks in the ordering.
+
+New endpoint: `GET /api/v1/income/stats?month=&year=` → `total_income`
+(all-time), `monthly_income`, `yearly_income`, `growth_percentage`
+(month-over-month, `null` when the prior month has nothing to compare
+against - not `0`, which would misrepresent "no data" as "no growth").
+
+**Bug 2 (could not reproduce):** I built a real PostgreSQL 16 database,
+ran the actual Alembic migrations (`0001`-`0003`) against it, and replayed
+register → create income → `GET /dashboard/summary` through the live API.
+`total_income` and `net_profit_loss` reflected the real inserted amount
+correctly every time, not `$0`. This was tested with the codebase as of
+the Sprint 4 + enum-casing-fix state, so if `$0` is still showing:
+- Confirm the deployed backend actually includes the enum-casing fix from
+  the previous bug fix (`values_callable` in `app/models/income.py` /
+  `expense.py`) - before that fix, income rows may have failed to insert
+  entirely against real Postgres, and `total_income` would legitimately be
+  `0` because there's no data, not because of a query bug.
+- Check the Network tab for the actual `/dashboard/summary` request/response
+  - specifically whether the frontend is reading a `balance` key (the API
+  returns `net_profit_loss`, not `balance` - if the frontend expects
+  `balance`, that's a field-name mismatch, not a backend aggregation bug).
+- Confirm the income entries and the dashboard request are authenticated
+  as the same user (e.g. not one browser tab logged into a different test
+  account than the one that created the income).
+
+No backend code was changed for Bug 2 - I'm not confident there's a
+backend bug here to fix, and changing aggregation logic without a
+reproducible failure risks introducing a real regression to cover an
+already-working code path.
+
+### Files Modified
+- `app/schemas/income.py` - added `IncomeStats`
+- `app/repositories/income_repository.py` - added `sum_for_year`, `sum_total`
+- `app/services/income_service.py` - added `get_stats`
+- `app/api/v1/endpoints/income.py` - added `GET /income/stats`
+- `tests/test_income_api.py` - added `TestIncomeStatsEndpoint` (9 tests)
+
+### Testing
+`uv run pytest` - **113 tests pass** (104 previous + 9 new). Also manually
+verified both endpoints against a real PostgreSQL 16 instance with the
+actual Alembic migrations applied, not just SQLite.
+
+### Git
+
+- **Branch:** `fix/income-stats-endpoint`
+- **Suggested commit:** `fix(income): add missing stats endpoint and resolve route collision with GET /income/{id}`
