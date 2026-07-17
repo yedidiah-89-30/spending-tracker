@@ -54,15 +54,15 @@ export interface IncomeListResponse {
 }
 
 export const INCOME_CATEGORIES = [
-  'Salary',
-  'Freelance',
-  'Investment',
-  'Business',
-  'Rental',
-  'Dividend',
-  'Interest',
-  'Gift',
-  'Other',
+  { label: 'Salary', value: 'salary' },
+  { label: 'Business', value: 'business' },
+  { label: 'Freelance', value: 'freelance' },
+  { label: 'Investment', value: 'investment' },
+  { label: 'Rental', value: 'rental' },
+  { label: 'Dividend', value: 'dividend' },
+  { label: 'Interest', value: 'interest' },
+  { label: 'Gift', value: 'gift' },
+  { label: 'Other', value: 'other' },
 ] as const;
 
-export type IncomeCategory = typeof INCOME_CATEGORIES[number];
+export type IncomeCategory = typeof INCOME_CATEGORIES[number]['value'];

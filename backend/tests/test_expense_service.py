@@ -52,6 +52,21 @@ class TestCreate:
         assert expense.amount == Decimal("50.00")
         assert expense.category == ExpenseCategory.FOOD
 
+    def test_create_stores_the_category_as_its_lowercase_value_not_its_enum_name(
+        self, expense_service, db_session
+    ):
+        """Regression test - mirrors the Income version of this test.
+        See app/models/expense.py and app/models/income.py for the root
+        cause (SQLAlchemy Enum binding .name instead of .value)."""
+        from sqlalchemy import text
+
+        expense_service.create(user_id=1, payload=make_payload())
+
+        raw_value = db_session.execute(text("SELECT category FROM expenses")).scalar_one()
+
+        assert raw_value == "food"
+        assert raw_value != "FOOD"
+
 
 class TestGet:
     def test_get_returns_owned_expense(self, expense_service):

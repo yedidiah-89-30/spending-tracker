@@ -1,6 +1,8 @@
 ﻿import { z } from 'zod';
 import { INCOME_CATEGORIES } from '../types';
 
+const categoryValues = INCOME_CATEGORIES.map(c => c.value) as [string, ...string[]];
+
 export const incomeSchema = z.object({
   amount: z.number({
     required_error: 'Amount is required',
@@ -13,7 +15,7 @@ export const incomeSchema = z.object({
     .min(2, 'Source must be at least 2 characters')
     .max(100, 'Source must be less than 100 characters')
     .trim(),
-  category: z.enum(INCOME_CATEGORIES as [string, ...string[]], {
+  category: z.enum(categoryValues, {
     required_error: 'Category is required',
   }),
   date: z.string({

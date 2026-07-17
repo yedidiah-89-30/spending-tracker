@@ -40,6 +40,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/shared/components/ui/AlertDialog';
+import { INCOME_CATEGORIES } from '../types';
 
 export function IncomeList() {
   const [filters, setFilters] = useState({});
@@ -66,6 +67,12 @@ export function IncomeList() {
   const handleAdd = () => {
     setSelectedIncome(null);
     setIsFormOpen(true);
+  };
+
+  // Helper to get category label from value
+  const getCategoryLabel = (value: string) => {
+    const category = INCOME_CATEGORIES.find(c => c.value === value);
+    return category ? category.label : value;
   };
 
   // Dialogs component to avoid duplication
@@ -209,7 +216,7 @@ export function IncomeList() {
                 <TableRow key={income.id}>
                   <TableCell className="font-medium">{income.source}</TableCell>
                   <TableCell>
-                    <Badge variant="secondary">{income.category}</Badge>
+                    <Badge variant="secondary">{getCategoryLabel(income.category)}</Badge>
                   </TableCell>
                   <TableCell className="font-semibold text-emerald-600 dark:text-emerald-400">
                     {formatCurrency(income.amount)}

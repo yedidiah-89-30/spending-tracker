@@ -52,6 +52,30 @@ class TestCreate:
         assert income.amount == Decimal("1000.00")
         assert income.category == IncomeCategory.SALARY
 
+    def test_create_stores_the_category_as_its_lowercase_value_not_its_enum_name(
+        self, income_service, db_session
+    ):
+        """Regression test: SQLAlchemy's Enum type binds a Python enum
+        column using the member NAME ("SALARY") by default, not its value
+        ("salary"), unless values_callable is set on the column (see
+        app/models/income.py). That mismatch against the DB's
+        ck_income_category_valid CHECK constraint (which only allows the
+        lowercase values) caused every income creation to fail against
+        real Postgres, even though this exact flow passed against SQLite
+        here - because the CHECK constraint used to exist only in the
+        Alembic migration, not on the ORM model, so SQLite never enforced
+        it. Both gaps are now closed: the model carries the same
+        CheckConstraint (see Income.__table_args__), and this test reads
+        the raw column value back to confirm it's the lowercase slug."""
+        from sqlalchemy import text
+
+        income_service.create(user_id=1, payload=make_payload())
+
+        raw_value = db_session.execute(text("SELECT category FROM income")).scalar_one()
+
+        assert raw_value == "salary"
+        assert raw_value != "SALARY"
+
 
 class TestGet:
     def test_get_returns_owned_income(self, income_service):

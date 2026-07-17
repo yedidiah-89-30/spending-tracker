@@ -40,7 +40,7 @@ export function IncomeForm({ initialData, onSuccess, onCancel }: IncomeFormProps
     defaultValues: {
       amount: initialData?.amount || 0,
       source: initialData?.source || '',
-      category: initialData?.category || INCOME_CATEGORIES[0],
+      category: initialData?.category || 'salary',
       date: initialData?.date || format(new Date(), 'yyyy-MM-dd'),
       description: initialData?.description || '',
       recurring: initialData?.recurring || false,
@@ -116,8 +116,8 @@ export function IncomeForm({ initialData, onSuccess, onCancel }: IncomeFormProps
                 </FormControl>
                 <SelectContent>
                   {INCOME_CATEGORIES.map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category}
+                    <SelectItem key={category.value} value={category.value}>
+                      {category.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
