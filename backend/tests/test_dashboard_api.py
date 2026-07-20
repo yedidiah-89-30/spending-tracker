@@ -29,6 +29,8 @@ class TestDashboardSummaryEndpoint:
         assert body["net_profit_loss"] == "0.00"
         assert body["total_savings"] == "0.00"
         assert body["recent_transactions"] == []
+        assert len(body["income_data"]) == 6
+        assert all(point["amount"] == 0.0 for point in body["income_data"])
         assert set(body["pending_features"]) == {
             "savings_goals",
             "subscriptions",
@@ -80,3 +82,32 @@ class TestDashboardSummaryEndpoint:
 
         # Default currency for a freshly registered user, set in the User model.
         assert response.json()["currency"] == "$"
+
+
+class TestIncomeDataField:
+    def test_income_data_shape_matches_the_frontend_chart_contract(self, client):
+        token = register_and_get_token(client)
+
+        response = client.get(
+            "/api/v1/dashboard/summary", headers={"Authorization": f"Bearer {token}"}
+        )
+
+        point = response.json()["income_data"][0]
+        assert set(point.keys()) == {"month", "amount"}
+        assert isinstance(point["month"], str)
+        assert isinstance(point["amount"], (int, float))
+
+    def test_income_data_reflects_real_income_entries(self, client):
+        token = register_and_get_token(client)
+        headers = {"Authorization": f"Bearer {token}"}
+        client.post(
+            "/api/v1/income",
+            json={"category": "salary", "amount": "1500.00", "date": "2026-07-05"},
+            headers=headers,
+        )
+
+        response = client.get("/api/v1/dashboard/summary?month=7&year=2026", headers=headers)
+
+        income_data = response.json()["income_data"]
+        july_point = next(p for p in income_data if p["month"] == "Jul 2026")
+        assert july_point["amount"] == 1500.0

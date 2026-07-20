@@ -52,9 +52,9 @@ export function RecentTransactions() {
     );
   }
 
-  const { recentTransactions } = data;
+  const { recent_transactions } = data;
 
-  if (recentTransactions.length === 0) {
+  if (recent_transactions.length === 0) {
     return (
       <Card className="border-border/50">
         <CardHeader>
@@ -77,7 +77,7 @@ export function RecentTransactions() {
         <CardDescription>Your recent financial activity</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {recentTransactions.slice(0, 5).map((transaction) => (
+        {recent_transactions.slice(0, 5).map((transaction) => (
           <div
             key={transaction.id}
             className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 transition-colors"
@@ -100,7 +100,7 @@ export function RecentTransactions() {
               <div>
                 <p className="font-medium text-sm">{transaction.description}</p>
                 <p className="text-xs text-muted-foreground">
-                  {transaction.category} â€¢ {formatRelativeTime(transaction.date)}
+                  {transaction.category} • {formatRelativeTime(transaction.date)}
                 </p>
               </div>
             </div>

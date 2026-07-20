@@ -514,3 +514,73 @@ actual Alembic migrations applied, not just SQLite.
 
 - **Branch:** `fix/income-stats-endpoint`
 - **Suggested commit:** `fix(income): add missing stats endpoint and resolve route collision with GET /income/{id}`
+
+## Contract addition — `income_data` on the dashboard summary
+
+The frontend's `IncomeChart` component needs a monthly income trend series.
+Added `income_data` to `DashboardSummary`:
+
+```json
+"income_data": [
+  { "month": "Feb 2026", "amount": 0.0 },
+  { "month": "Mar 2026", "amount": 0.0 },
+  { "month": "Apr 2026", "amount": 2000.0 },
+  { "month": "May 2026", "amount": 0.0 },
+  { "month": "Jun 2026", "amount": 300.0 },
+  { "month": "Jul 2026", "amount": 1500.0 }
+]
+```
+
+**Purely additive - no breaking change.** Every existing field on
+`DashboardSummary` is unchanged; this is a new field only, so no
+frontend code that already consumes this endpoint needs to change.
+
+### Design decisions / assumptions stated up front
+
+- **Window: trailing 6 months, oldest first, ending at the requested
+  `month`/`year`** (or current month/year by default, same as the rest of
+  this endpoint). Not configurable via query param yet - if the frontend
+  needs a different window size, that's a one-line change
+  (`_INCOME_CHART_MONTHS` in `app/services/dashboard_service.py`) plus a
+  new optional query param; I didn't add the param speculatively since
+  nothing asked for it yet.
+- **`month` is formatted `"Mon YYYY"`** (e.g. `"Jul 2026"`) - unambiguous
+  across year boundaries and usable directly as a chart axis label with
+  no frontend-side date parsing/formatting needed.
+- **`amount` is a plain `float`, not the `Decimal`-as-string every other
+  money field on this API uses.** This is a deliberate, isolated
+  exception: the ticket's TypeScript contract explicitly says
+  `amount: number`, and a charting library wants a JSON number it can
+  plot directly, not a string it has to parse first. Sub-cent float
+  imprecision is immaterial on a chart axis, unlike on a balance a user
+  might reconcile against a bank statement - so this tradeoff is scoped
+  to this one chart-feed field, not applied anywhere else.
+- Correctly handles the same December→January year-rollover logic already
+  established in `IncomeService.get_stats` (see the previous bug fix) -
+  requesting Feb 2026, for example, correctly walks back through Sep-Dec
+  **2025**, not year 2026.
+
+### Files Modified
+- `app/schemas/dashboard.py` - added `MonthlyIncomePoint`, added
+  `income_data` field to `DashboardSummary`
+- `app/services/dashboard_service.py` - added `_trailing_months` helper
+  and income_data computation in `get_summary`
+- `tests/test_dashboard_service.py`, `tests/test_dashboard_api.py` - added
+  coverage for the trailing window, real amounts, year rollover, and the
+  `float`-not-string type contract
+
+### Testing
+`uv run pytest` - **119 tests pass** (113 previous + 6 new).
+
+### Integration Notes for Frontend
+- `income_data` is ready to hand directly to `IncomeChart` - `month` is
+  pre-formatted for display, `amount` is a real number.
+- Every other money field on this endpoint (`total_income`,
+  `total_expenses`, `net_profit_loss`, `total_savings`,
+  `recent_transactions[].amount`) is still a string, unchanged - don't
+  apply the same numeric-parsing assumption there.
+
+### Git
+
+- **Branch:** `feature/income-chart-data`
+- **Suggested commit:** `feat(dashboard): add income_data trend series for IncomeChart`

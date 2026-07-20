@@ -1,51 +1,32 @@
-﻿import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '@/shared/lib/api/client';
-import { handleAPIError } from '@/shared/lib/api/error';
+﻿import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { dashboardAPI } from '@/shared/lib/api/dashboard';
 import type { DashboardData } from '../types';
 
-const DASHBOARD_QUERY_KEY = 'dashboard';
+export const DASHBOARD_QUERY_KEY = 'dashboard';
 
 export function useDashboard() {
-  return useQuery({
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
     queryKey: [DASHBOARD_QUERY_KEY],
     queryFn: async (): Promise<DashboardData> => {
-      try {
-        const response = await apiClient.get('/dashboard/summary');
-
-        const data = response.data;
-
-        return {
-          stats: {
-            totalIncome: Number(data.total_income),
-            totalExpenses: Number(data.total_expenses),
-            balance: Number(data.net_profit_loss),
-            savings: Number(data.total_savings),
-
-            // Backend doesn't provide these yet.
-            incomeChange: 0,
-            expensesChange: 0,
-            balanceChange: 0,
-            savingsChange: 0,
-          },
-
-          recentTransactions: data.recent_transactions.map((t: any) => ({
-            id: String(t.id),
-            type: t.type,
-            amount: Number(t.amount),
-            description: t.description,
-            category: t.category,
-            date: t.date,
-            status: 'completed',
-          })),
-
-          // Backend hasn't implemented chart data yet.
-          incomeData: [],
-        };
-      } catch (error) {
-        throw handleAPIError(error);
-      }
+      const data = await dashboardAPI.getStats();
+      return data;
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 2 * 60 * 1000,
     refetchOnWindowFocus: true,
   });
+
+  // Function to invalidate dashboard cache
+  const invalidateDashboard = () => {
+    queryClient.invalidateQueries({ queryKey: [DASHBOARD_QUERY_KEY] });
+  };
+
+  return {
+    data: query.data,
+    isLoading: query.isLoading,
+    error: query.error,
+    refetch: query.refetch,
+    invalidateDashboard,
+  };
 }

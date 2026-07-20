@@ -47,6 +47,9 @@ export function IncomeChart() {
     );
   }
 
+  // Debug: inspect the dashboard response
+  console.log('IncomeChart data:', data);
+
   return (
     <Card className="border-border/50">
       <CardHeader>
@@ -57,7 +60,7 @@ export function IncomeChart() {
         <div className="h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart
-              data={data.incomeData}
+              data={data.income_data}
               margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
             >
               <defs>

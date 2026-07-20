@@ -1,12 +1,12 @@
 ﻿export interface DashboardStats {
-  totalIncome: number;
-  totalExpenses: number;
+  total_income: number;
+  total_expenses: number;
+  net_profit_loss: number;
   balance: number;
-  savings: number;
-  incomeChange: number;
-  expensesChange: number;
-  balanceChange: number;
-  savingsChange: number;
+  income_change: number;
+  expenses_change: number;
+  net_profit_loss_change: number;
+  balance_change: number;
 }
 
 export interface Transaction {
@@ -21,6 +21,6 @@ export interface Transaction {
 
 export interface DashboardData {
   stats: DashboardStats;
-  recentTransactions: Transaction[];
-  incomeData: { month: string; amount: number }[];
+  recent_transactions: Transaction[];
+  income_data: { month: string; amount: number }[];
 }

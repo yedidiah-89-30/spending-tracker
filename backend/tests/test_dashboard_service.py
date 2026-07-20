@@ -153,3 +153,76 @@ class TestDashboardService:
         summary = dashboard_service.get_summary(user, month=7, year=2026)
 
         assert summary.net_profit_loss == Decimal("-200.00")
+
+    def test_income_data_covers_trailing_six_months_oldest_first(self, dashboard_service, user):
+        summary = dashboard_service.get_summary(user, month=7, year=2026)
+
+        assert [point.month for point in summary.income_data] == [
+            "Feb 2026",
+            "Mar 2026",
+            "Apr 2026",
+            "May 2026",
+            "Jun 2026",
+            "Jul 2026",
+        ]
+        assert all(point.amount == 0.0 for point in summary.income_data)
+
+    def test_income_data_reflects_real_amounts_per_month(self, db_session, dashboard_service, user):
+        db_session.add(
+            Income(
+                user_id=user.id,
+                category=IncomeCategory.SALARY,
+                amount=Decimal("2000.00"),
+                description="May salary",
+                date=date(2026, 5, 1),
+            )
+        )
+        db_session.add(
+            Income(
+                user_id=user.id,
+                category=IncomeCategory.FREELANCE,
+                amount=Decimal("300.00"),
+                description="July gig",
+                date=date(2026, 7, 10),
+            )
+        )
+        db_session.commit()
+
+        summary = dashboard_service.get_summary(user, month=7, year=2026)
+
+        by_month = {point.month: point.amount for point in summary.income_data}
+        assert by_month["May 2026"] == 2000.0
+        assert by_month["Jul 2026"] == 300.0
+        assert by_month["Jun 2026"] == 0.0
+
+    def test_income_data_amount_is_a_json_number_not_a_string(self, dashboard_service, user):
+        summary = dashboard_service.get_summary(user, month=7, year=2026)
+
+        assert isinstance(summary.income_data[0].amount, float)
+
+    def test_income_data_handles_year_rollover(self, db_session, dashboard_service, user):
+        db_session.add(
+            Income(
+                user_id=user.id,
+                category=IncomeCategory.SALARY,
+                amount=Decimal("1000.00"),
+                description="December salary",
+                date=date(2025, 12, 15),
+            )
+        )
+        db_session.commit()
+
+        # Requesting Feb 2026 pulls a trailing window back into Sep 2025 -
+        # Dec 2025 must resolve to year 2025, not 2026.
+        summary = dashboard_service.get_summary(user, month=2, year=2026)
+
+        assert [point.month for point in summary.income_data] == [
+            "Sep 2025",
+            "Oct 2025",
+            "Nov 2025",
+            "Dec 2025",
+            "Jan 2026",
+            "Feb 2026",
+        ]
+        by_month = {point.month: point.amount for point in summary.income_data}
+        assert by_month["Dec 2025"] == 1000.0

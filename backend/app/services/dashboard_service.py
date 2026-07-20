@@ -16,16 +16,32 @@ No endpoint or schema change is required when that happens - the contract
 has been stable since Sprint 2.
 """
 
+from datetime import date
 from decimal import Decimal
 
 from app.models.user import User
 from app.repositories.expense_repository import ExpenseRepository
 from app.repositories.income_repository import IncomeRepository
-from app.schemas.dashboard import DashboardSummary, RecentTransactionRead
+from app.schemas.dashboard import DashboardSummary, MonthlyIncomePoint, RecentTransactionRead
 
 _PENDING_FEATURES = ["savings_goals", "subscriptions"]
 
 _RECENT_TRANSACTIONS_LIMIT = 5
+_INCOME_CHART_MONTHS = 6
+
+
+def _trailing_months(year: int, month: int, count: int) -> list[tuple[int, int]]:
+    """(year, month) pairs for the `count` months ending at year/month,
+    oldest first - handles the December->January year rollover the same
+    way IncomeService.get_stats does for growth_percentage."""
+    months: list[tuple[int, int]] = []
+    y, m = year, month
+    for _ in range(count):
+        months.append((y, m))
+        m -= 1
+        if m == 0:
+            m, y = 12, y - 1
+    return list(reversed(months))
 
 
 class DashboardService:
@@ -75,6 +91,14 @@ class DashboardService:
         recent_transactions.sort(key=lambda t: t.date, reverse=True)
         recent_transactions = recent_transactions[:_RECENT_TRANSACTIONS_LIMIT]
 
+        income_data = [
+            MonthlyIncomePoint(
+                month=date(y, m, 1).strftime("%b %Y"),
+                amount=float(self.income_repository.sum_for_month(user.id, y, m)),
+            )
+            for y, m in _trailing_months(year, month, _INCOME_CHART_MONTHS)
+        ]
+
         return DashboardSummary(
             month=month,
             year=year,
@@ -84,6 +108,7 @@ class DashboardService:
             net_profit_loss=total_income - total_expenses,
             total_savings=Decimal("0.00"),
             recent_transactions=recent_transactions,
+            income_data=income_data,
             pending_features=list(_PENDING_FEATURES),
         )
 

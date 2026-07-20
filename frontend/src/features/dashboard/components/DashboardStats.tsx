@@ -80,35 +80,35 @@ export function DashboardStats() {
     );
   }
 
-  const { stats } = data!;
+  const stats = data!;
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       <StatCard
         title="Total Income"
-        value={formatCurrency(stats.totalIncome)}
+        value={formatCurrency(stats.total_income)}
         icon={<TrendingUp className="h-4 w-4" />}
-        change={stats.incomeChange}
+        change={stats.income_change}
       />
       <StatCard
         title="Total Expenses"
-        value={formatCurrency(stats.totalExpenses)}
+        value={formatCurrency(stats.total_expenses)}
         icon={<TrendingDown className="h-4 w-4" />}
-        change={stats.expensesChange}
+        change={stats.expenses_change}
         variant="destructive"
       />
       <StatCard
-        title="Balance"
-        value={formatCurrency(stats.balance)}
+        title="Net Profit/Loss"
+        value={formatCurrency(stats.net_profit_loss)}
         icon={<Wallet className="h-4 w-4" />}
-        change={stats.balanceChange}
+        change={stats.net_profit_loss_change}
+        variant={stats.net_profit_loss >= 0 ? 'success' : 'destructive'}
       />
       <StatCard
-        title="Savings"
-        value={formatCurrency(stats.savings)}
-        icon={<PiggyBank className="h-4 w-4" />}
-        change={stats.savingsChange}
-      />
+  title="Savings"
+  value={formatCurrency(stats.total_savings)}
+  icon={<PiggyBank className="h-4 w-4" />}
+/>
     </div>
   );
 }

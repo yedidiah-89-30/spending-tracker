@@ -2,6 +2,7 @@
 import { incomeService } from '../services/income.service';
 import { useToast } from '@/shared/hooks/useToast';
 import { getErrorMessage } from '@/shared/lib/api/error';
+import { DASHBOARD_QUERY_KEY } from '@/features/dashboard/hooks/useDashboard';
 import type { IncomeCreate, IncomeUpdate, IncomeFilters } from '../types';
 
 const INCOME_QUERY_KEY = 'income';
@@ -20,6 +21,7 @@ export function useIncome(filters?: IncomeFilters) {
     mutationFn: (data: IncomeCreate) => incomeService.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [INCOME_QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: [DASHBOARD_QUERY_KEY] });
       toast({
         title: 'Income added',
         description: 'Your income has been added successfully',
@@ -39,6 +41,7 @@ export function useIncome(filters?: IncomeFilters) {
       incomeService.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [INCOME_QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: [DASHBOARD_QUERY_KEY] });
       toast({
         title: 'Income updated',
         description: 'Your income has been updated successfully',
@@ -57,6 +60,7 @@ export function useIncome(filters?: IncomeFilters) {
     mutationFn: (id: string) => incomeService.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [INCOME_QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: [DASHBOARD_QUERY_KEY] });
       toast({
         title: 'Income deleted',
         description: 'Your income has been deleted successfully',
